@@ -432,7 +432,7 @@ ${libSummary}
     h('div',{className:'page-title'},h('i',{className:'ti ti-sparkles'}),'今日の提案'),
     err&&h('div',{className:'alert ae'},h('i',{className:'ti ti-circle-x'}),err),
     ok&&h('div',{className:'alert as'},h('i',{className:'ti ti-circle-check'}),ok),
-    !apiKey&&h('div',{className:'alert aw'},h('i',{className:'ti ti-alert-triangle'}),'設定タブでAnthropicのAPIキーを入力してください。'),
+    !gasUrl&&h('div',{className:'alert aw'},h('i',{className:'ti ti-alert-triangle'}),'設定タブでGAS URLを入力してください。'),
 
     h('div',{className:'card'},
       h('div',{className:'card-title'},h('i',{className:'ti ti-carrot'}),'前日の余り食材'),
