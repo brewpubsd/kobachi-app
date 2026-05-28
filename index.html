@@ -170,6 +170,8 @@ function uid(){return 'r'+Date.now()+Math.random().toString(36).slice(2,6);}
 
 /* ── GAS helpers ─────────────────────────────────────────────── */
 const GAS_CODE=`const SS=SpreadsheetApp.getActiveSpreadsheet();
+const GEMINI_API_KEY='ここにGemini APIキーを貼り付ける';
+
 function getOrCreate(name){return SS.getSheetByName(name)||SS.insertSheet(name);}
 function doGet(){
   const h=getOrCreate('history').getDataRange().getValues().slice(1)
@@ -189,6 +191,15 @@ function doPost(e){
     const s=getOrCreate('library');
     if(s.getLastRow()>1)s.deleteRows(2,s.getLastRow()-1);
     b.recipes.forEach(r=>s.appendRow([r.id,r.name,r.category,r.ingredients,r.url,r.memo||'']));
+  }else if(b.action==='callAI'){
+    const url='https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key='+GEMINI_API_KEY;
+    const res=UrlFetchApp.fetch(url,{
+      method:'post',
+      contentType:'application/json',
+      payload:JSON.stringify({contents:b.contents})
+    });
+    const d=JSON.parse(res.getContentText());
+    return out({text:d.candidates[0].content.parts[0].text});
   }
   return out({ok:true});
 }
@@ -264,18 +275,14 @@ function App(){
 
   /* ── AI call ───────────────────────────────────────────────── */
   async function callAI(messages,system,maxTok=1000){
-    if(!apiKey){flash('設定タブでAPIキーを入力してください','err');return null;}
-    const body={model:'claude-sonnet-4-20250514',max_tokens:maxTok,messages};
-    if(system)body.system=system;
-    const res=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','x-api-key':apiKey,
-        'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify(body)
-    });
-    const d=await res.json();
-    if(d.error)throw new Error(d.error.message);
-    return d.content[0].text;
+    if(!gasUrl){flash('設定タブでGAS URLを入力してください','err');return null;}
+    const contents=[
+      ...(system?[{role:'user',parts:[{text:system}]},{role:'model',parts:[{text:'わかりました。'}]}]:[]),
+      ...messages.map(m=>({role:m.role==='assistant'?'model':'user',parts:[{text:m.content}]}))
+    ];
+    const d=await gasRequest(gasUrl,'post',{action:'callAI',contents});
+    if(!d||!d.text)throw new Error('AI呼び出しに失敗しました');
+    return d.text;
   }
 
   /* ── 提案生成 ───────────────────────────────────────────────── */
@@ -577,18 +584,7 @@ ${libSummary}
     ok&&h('div',{className:'alert as'},h('i',{className:'ti ti-circle-check'}),ok),
     h('div',{className:'card'},
       h('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:'.75rem'}},
-        h('span',{className:'step'},'1'),h('span',{style:{fontWeight:700}},'Anthropic APIキー（必須）')),
-      h('div',{className:'row2'},
-        h('input',{type:'password',placeholder:'sk-ant-api03-...',value:apiKey,
-          onChange:ev=>{setApiKey(ev.target.value);LS.set('k-apikey',ev.target.value);}}),
-        h('a',{href:'https://console.anthropic.com/',target:'_blank',rel:'noopener',className:'btn'},
-          h('i',{className:'ti ti-external-link'}),' 取得')
-      ),
-      h('p',{style:{fontSize:11,color:'var(--g400)',marginTop:5}},'このブラウザのみ保存。他スタッフには共有されません。')
-    ),
-    h('div',{className:'card'},
-      h('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:'.75rem'}},
-        h('span',{className:'step'},'2'),h('span',{style:{fontWeight:700}},'Google Apps Script URL（スタッフ共有・任意）')),
+        h('span',{className:'step'},'1'),h('span',{style:{fontWeight:700}},'Google Apps Script URL（必須）')),
       h('input',{type:'url',placeholder:'https://script.google.com/macros/s/xxxxx/exec',
         value:gasUrl,onChange:ev=>{setGasUrl(ev.target.value);LS.set('k-gasurl',ev.target.value);}}),
       gasUrl&&h('div',{style:{marginTop:6}},
@@ -596,12 +592,14 @@ ${libSummary}
         gasOk===false&&h('span',{style:{fontSize:12,color:'var(--red)',marginLeft:8}},'接続できません')
       ),
       h('p',{style:{fontSize:11,color:'var(--g400)',marginTop:5}},
-        '設定するとライブラリ・履歴をスタッフ全員で共有できます。'),
+        'ライブラリ・履歴の共有 ＋ AI呼び出しをGAS経由で行います。GASコード内にGemini APIキーを設定してください。'),
       h('div',{className:'section-sep'},'Google Apps Script 設定手順'),
       h('ol',{style:{fontSize:12,color:'var(--g700)',lineHeight:2.1,paddingLeft:'1.25rem'}},
         h('li',null,'Google ドライブで「新しいスプレッドシート」を作成'),
         h('li',null,'「拡張機能」→「Apps Script」を開く'),
-        h('li',null,'下のコードをコピーして貼り付け → 保存（Ctrl+S）'),
+        h('li',null,'下のコードをコピーして貼り付け'),
+        h('li',null,h('strong',null,"1行目の 'ここにGemini APIキーを貼り付ける' を実際のキーに書き換える")),
+        h('li',null,'保存（Ctrl+S）'),
         h('li',null,'「デプロイ」→「新しいデプロイ」→ 種類「ウェブアプリ」'),
         h('li',null,'実行ユーザー:自分 ／ アクセス:全員 → デプロイ → URLをコピー'),
         h('li',null,'上のフォームに貼り付けて「今すぐ同期」を押す')
