@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>小鉢メニュー提案</title>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.8.0/dist/tabler-icons.min.css">
+<style>
+:root{
+  --green:#1a7f5a;--green-d:#15694b;--green-l:#e8f5f0;--green-m:#c6e8da;
+  --amber:#b45309;--amber-l:#fef3c7;
+  --red:#dc2626;--red-l:#fee2e2;
+  --blue:#1d4ed8;--blue-l:#dbeafe;
+  --g50:#f8fafc;--g100:#f1f5f9;--g200:#e2e8f0;--g300:#cbd5e1;
+  --g400:#94a3b8;--g500:#64748b;--g700:#334155;--g900:#0f172a;
+  --white:#fff;--r:10px;--rs:6px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;}
+body{font-family:'Yu Gothic UI','Hiragino Kaku Gothic ProN','Meiryo',sans-serif;background:var(--g100);color:var(--g900);font-size:14px;}
+.layout{display:flex;min-height:100vh;}
+.sidebar{width:220px;background:var(--white);border-right:1px solid var(--g200);flex-shrink:0;display:flex;flex-direction:column;}
+.sb-logo{padding:1.25rem 1rem 1rem;border-bottom:1px solid var(--g200);}
+.sb-logo h1{font-size:15px;font-weight:700;color:var(--green);display:flex;align-items:center;gap:7px;}
+.sb-logo h1 i{font-size:22px;}
+.sb-logo p{font-size:11px;color:var(--g400);margin-top:2px;padding-left:29px;}
+.sb-nav{padding:.5rem 0;flex:1;}
+.nav-item{display:flex;align-items:center;gap:9px;padding:10px 1rem;cursor:pointer;color:var(--g500);font-size:13px;border-left:3px solid transparent;user-select:none;transition:all .15s;}
+.nav-item:hover{background:var(--g50);color:var(--g700);}
+.nav-item.active{background:var(--green-l);color:var(--green);border-left-color:var(--green);font-weight:600;}
+.nav-item i{font-size:18px;flex-shrink:0;}
+.nav-badge{margin-left:auto;font-size:10px;font-weight:700;background:var(--green);color:#fff;border-radius:999px;padding:1px 7px;min-width:20px;text-align:center;}
+.sb-footer{padding:1rem;border-top:1px solid var(--g200);font-size:11px;color:var(--g400);line-height:1.7;}
+.sync-dot{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:4px;vertical-align:middle;}
+.sync-ok{background:#22c55e;}.sync-no{background:var(--g300);}
+.main{flex:1;padding:1.75rem 2rem;max-width:920px;overflow-y:auto;}
+.page-title{font-size:19px;font-weight:700;margin-bottom:1.25rem;display:flex;align-items:center;gap:9px;color:var(--g900);}
+.page-title i{color:var(--green);}
+.card{background:var(--white);border:1px solid var(--g200);border-radius:var(--r);padding:1.25rem;margin-bottom:1rem;}
+.card-title{font-size:11px;font-weight:700;color:var(--g400);margin-bottom:.6rem;display:flex;align-items:center;gap:5px;text-transform:uppercase;letter-spacing:.05em;}
+label{font-size:12px;font-weight:500;color:var(--g600);display:block;margin-bottom:4px;margin-top:.75rem;}
+label:first-child{margin-top:0;}
+input[type=text],input[type=url],input[type=password],textarea,select{
+  width:100%;padding:8px 12px;border:1px solid var(--g200);border-radius:var(--rs);
+  font-size:13px;font-family:inherit;color:var(--g900);background:var(--white);outline:none;transition:border .15s;
+}
+input:focus,textarea:focus,select:focus{border-color:var(--green);}
+textarea{resize:vertical;min-height:68px;line-height:1.6;}
+.row2{display:flex;gap:8px;align-items:flex-start;}
+.row2>*:first-child{flex:1;}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:var(--rs);font-size:13px;font-family:inherit;cursor:pointer;border:1px solid var(--g200);background:var(--white);color:var(--g700);transition:all .15s;font-weight:500;text-decoration:none;white-space:nowrap;}
+.btn:hover{background:var(--g50);}
+.btn:active{transform:scale(.98);}
+.btn:disabled{opacity:.4;cursor:not-allowed;transform:none;}
+.btn.primary{background:var(--green);color:#fff;border-color:var(--green);}
+.btn.primary:hover{background:var(--green-d);}
+.btn.sm{padding:5px 11px;font-size:12px;}
+.btn.danger{color:var(--red);border-color:var(--red-l);}
+.btn.danger:hover{background:var(--red-l);}
+.badge{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:600;padding:2px 9px;border-radius:999px;}
+.bw{background:var(--green-l);color:var(--green);}
+.by{background:var(--blue-l);color:var(--blue);}
+.bc{background:var(--amber-l);color:var(--amber);}
+.bo{background:var(--g100);color:var(--g500);}
+.bl{background:#fce7f3;color:#9d174d;}
+.alert{font-size:12px;padding:9px 13px;border-radius:var(--rs);margin-bottom:.75rem;display:flex;align-items:flex-start;gap:7px;line-height:1.6;}
+.alert i{flex-shrink:0;margin-top:1px;font-size:15px;}
+.ae{background:var(--red-l);color:var(--red);}
+.as{background:var(--green-l);color:var(--green);}
+.ai{background:var(--blue-l);color:var(--blue);}
+.aw{background:var(--amber-l);color:var(--amber);}
+
+/* ── Library ─────────────────────────────── */
+.lib-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:1rem;}
+.lib-toolbar input{max-width:220px;}
+.lib-toolbar select{max-width:130px;}
+.lib-count{font-size:12px;color:var(--g400);margin-left:auto;}
+.lib-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:.75rem;}
+.lib-card{background:var(--white);border:1px solid var(--g200);border-radius:var(--r);padding:1rem;display:flex;flex-direction:column;gap:6px;transition:box-shadow .15s;}
+.lib-card:hover{box-shadow:0 2px 10px rgba(0,0,0,.07);}
+.lib-card-name{font-size:14px;font-weight:600;color:var(--g900);}
+.lib-card-ing{font-size:11px;color:var(--g400);line-height:1.5;}
+.lib-card-foot{display:flex;gap:6px;align-items:center;margin-top:4px;}
+.lib-card-foot a{font-size:11px;color:var(--blue);display:flex;align-items:center;gap:3px;text-decoration:none;margin-right:auto;}
+.lib-card-foot a:hover{text-decoration:underline;}
+.tags{display:flex;flex-wrap:wrap;gap:4px;}
+.tag{font-size:11px;padding:2px 8px;background:var(--g50);border-radius:999px;color:var(--g500);border:1px solid var(--g200);}
+.tag.highlight{background:#fef3c7;color:#92400e;border-color:#fcd34d;}
+
+/* ── Suggestion card ─────────────────────── */
+.dish-card{background:var(--white);border:1px solid var(--g200);border-radius:var(--r);padding:1rem 1.1rem;margin-bottom:.75rem;border-left:4px solid var(--green);}
+.dish-num{width:26px;height:26px;border-radius:50%;background:var(--green);color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.dish-name{font-size:16px;font-weight:700;}
+.dish-reason{font-size:12px;color:var(--g500);border-left:2px solid var(--green-m);padding-left:8px;font-style:italic;margin:6px 0;}
+
+/* ── History ─────────────────────────────── */
+.hist-row{padding:.75rem 0;border-bottom:1px solid var(--g100);}
+.hist-row:last-child{border-bottom:none;}
+.hist-date{font-size:12px;font-weight:600;color:var(--g500);margin-bottom:5px;display:flex;align-items:center;gap:5px;}
+
+/* ── Chat ────────────────────────────────── */
+.chat-wrap{display:flex;flex-direction:column;height:480px;border:1px solid var(--g200);border-radius:var(--r);overflow:hidden;}
+.chat-msgs{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:1rem;background:var(--g50);}
+.msg{max-width:78%;padding:10px 14px;border-radius:12px;font-size:13px;line-height:1.75;}
+.msg.user{align-self:flex-end;background:var(--green);color:#fff;border-bottom-right-radius:3px;}
+.msg.assistant{align-self:flex-start;background:#fff;border:1px solid var(--g200);color:var(--g900);border-bottom-left-radius:3px;}
+.chat-foot{border-top:1px solid var(--g200);padding:.75rem;background:#fff;}
+.qbtns{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:.6rem;}
+.qbtn{font-size:11px;padding:4px 10px;border:1px solid var(--g200);border-radius:999px;background:#fff;cursor:pointer;color:var(--g500);font-family:inherit;transition:all .15s;}
+.qbtn:hover{background:var(--green-l);color:var(--green);border-color:var(--green-m);}
+.chat-row{display:flex;gap:6px;}
+.chat-row input{flex:1;}
+
+/* ── Misc ────────────────────────────────── */
+.empty{text-align:center;padding:3rem 1rem;color:var(--g400);}
+.empty i{font-size:44px;display:block;margin-bottom:10px;}
+.empty p{font-size:13px;}
+.dots{display:inline-flex;gap:3px;align-items:center;}
+.dot{width:5px;height:5px;border-radius:50%;background:currentColor;opacity:.3;animation:bl 1.2s infinite;}
+.dot:nth-child(2){animation-delay:.2s;}.dot:nth-child(3){animation-delay:.4s;}
+@keyframes bl{40%{opacity:1;}}
+.step{width:22px;height:22px;border-radius:50%;background:var(--green);color:#fff;font-size:11px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;}
+.code-block{background:#1e293b;border-radius:8px;padding:1rem;overflow-x:auto;margin-top:.75rem;}
+.code-block pre{font-size:11px;color:#94a3b8;font-family:'Courier New',monospace;white-space:pre-wrap;line-height:1.65;}
+.copy-btn{font-size:11px;padding:4px 10px;border:1px solid #475569;border-radius:4px;background:transparent;color:#94a3b8;cursor:pointer;font-family:inherit;float:right;margin-bottom:4px;}
+.copy-btn:hover{background:#334155;color:#fff;}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;z-index:100;padding:1rem;}
+.modal{background:#fff;border-radius:var(--r);padding:1.5rem;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.2);}
+.modal-title{font-size:16px;font-weight:700;margin-bottom:1.25rem;display:flex;align-items:center;gap:8px;}
+.modal-foot{display:flex;gap:8px;justify-content:flex-end;margin-top:1.25rem;padding-top:1rem;border-top:1px solid var(--g200);}
+.section-sep{font-size:11px;font-weight:700;color:var(--g400);text-transform:uppercase;letter-spacing:.06em;margin:1.25rem 0 .5rem;display:flex;align-items:center;gap:8px;}
+.section-sep::after{content:'';flex:1;height:1px;background:var(--g200);}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+const {useState,useEffect,useRef,useMemo}=React;
+const h=React.createElement;
+
+const LS={
+  get:k=>{try{return JSON.parse(localStorage.getItem(k));}catch{return null;}},
+  set:(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));}catch{}}
+};
+
+const CATS=['和','洋','中','その他'];
+const SAMPLE_RECIPES=[
+  {id:'s1',name:'ほうれん草のお浸し',category:'和',ingredients:'ほうれん草,だし醤油,かつお節',url:'https://www.sirogohan.com/recipe/ohitashi/',memo:''},
+  {id:'s2',name:'きんぴらごぼう',category:'和',ingredients:'ごぼう,にんじん,醤油,みりん,ごま油',url:'https://www.sirogohan.com/recipe/kinpira/',memo:''},
+  {id:'s3',name:'ひじきの煮物',category:'和',ingredients:'ひじき,油揚げ,にんじん,醤油,みりん',url:'https://www.sirogohan.com/recipe/hijiki/',memo:''},
+  {id:'s4',name:'小松菜の炒め物',category:'和',ingredients:'小松菜,にんにく,しらす,ごま油',url:'https://www.sirogohan.com/recipe/komatuna/',memo:''},
+  {id:'s5',name:'かぼちゃの煮物',category:'和',ingredients:'かぼちゃ,醤油,みりん,砂糖',url:'https://www.sirogohan.com/recipe/kabocha/',memo:''},
+  {id:'s6',name:'肉じゃが',category:'和',ingredients:'じゃがいも,牛肉,玉ねぎ,醤油,みりん',url:'https://www.sirogohan.com/recipe/nikujaga/',memo:''},
+  {id:'s7',name:'冷やっこ',category:'和',ingredients:'豆腐,しょうが,醤油,ねぎ',url:'https://www.sirogohan.com/recipe/hiyayakko/',memo:''},
+  {id:'s8',name:'ポテトサラダ',category:'洋',ingredients:'じゃがいも,きゅうり,玉ねぎ,マヨネーズ',url:'https://www.sirogohan.com/recipe/potesara/',memo:''},
+  {id:'s9',name:'キャベツの浅漬け',category:'和',ingredients:'キャベツ,塩,昆布,唐辛子',url:'https://www.sirogohan.com/recipe/kyabetsuasazuke/',memo:''},
+  {id:'s10',name:'揚げ出し豆腐',category:'和',ingredients:'豆腐,だし,醤油,みりん,片栗粉',url:'https://www.sirogohan.com/recipe/agedashidoufu/',memo:''},
+];
+
+function catCls(c){
+  if(!c)return'badge bo';
+  if(c==='和')return'badge bw';
+  if(c==='洋')return'badge by';
+  if(c==='中')return'badge bc';
+  return'badge bo';
+}
+function uid(){return 'r'+Date.now()+Math.random().toString(36).slice(2,6);}
+
+/* ── GAS helpers ─────────────────────────────────────────────── */
+const GAS_CODE=`const SS=SpreadsheetApp.getActiveSpreadsheet();
+const GEMINI_API_KEY='ここにGemini APIキーを貼り付ける';
+
+function getOrCreate(name){return SS.getSheetByName(name)||SS.insertSheet(name);}
+function doGet(){
+  const h=getOrCreate('history').getDataRange().getValues().slice(1)
+    .map(r=>({date:r[0],dishes:JSON.parse(r[1]||'[]'),leftovers:r[2]||''}));
+  const l=getOrCreate('library').getDataRange().getValues().slice(1)
+    .map(r=>({id:r[0],name:r[1],category:r[2],ingredients:r[3],url:r[4],memo:r[5]||''}));
+  return out({history:h,library:l});
+}
+function doPost(e){
+  const b=JSON.parse(e.postData.contents);
+  if(b.action==='saveHistory'){
+    getOrCreate('history').appendRow([b.date,JSON.stringify(b.dishes),b.leftovers||'']);
+  }else if(b.action==='clearHistory'){
+    const s=getOrCreate('history'),last=s.getLastRow();
+    if(last>1)s.deleteRows(2,last-1);
+  }else if(b.action==='saveLibrary'){
+    const s=getOrCreate('library');
+    if(s.getLastRow()>1)s.deleteRows(2,s.getLastRow()-1);
+    b.recipes.forEach(r=>s.appendRow([r.id,r.name,r.category,r.ingredients,r.url,r.memo||'']));
+  }else if(b.action==='callAI'){
+    const url='https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key='+GEMINI_API_KEY;
+    const res=UrlFetchApp.fetch(url,{
+      method:'post',
+      contentType:'application/json',
+      payload:JSON.stringify({contents:b.contents})
+    });
+    const d=JSON.parse(res.getContentText());
+    return out({text:d.candidates[0].content.parts[0].text});
+  }
+  return out({ok:true});
+}
+function out(obj){
+  const o=ContentService.createTextOutput(JSON.stringify(obj));
+  o.setMimeType(ContentService.MimeType.JSON);return o;
+}`;
+
+async function gasRequest(url,action,body){
+  try{
+    if(action==='get'){
+      const r=await fetch(url+'?action=get',{redirect:'follow'});
+      return await r.json();
+    }
+    const r=await fetch(url,{method:'POST',redirect:'follow',
+      headers:{'Content-Type':'text/plain'},body:JSON.stringify({...body})});
+    return await r.json();
+  }catch{return null;}
+}
+
+/* ── App ─────────────────────────────────────────────────────── */
+function App(){
+  const [tab,setTab]=useState('suggest');
+  const [apiKey,setApiKey]=useState(()=>LS.get('k-apikey')||'');
+  const [gasUrl,setGasUrl]=useState(()=>LS.get('k-gasurl')||'');
+  const [gasOk,setGasOk]=useState(null);
+  const [library,setLibrary]=useState(()=>LS.get('k-library')||SAMPLE_RECIPES);
+  const [history,setHistory]=useState(()=>LS.get('k-history')||[]);
+  const [leftovers,setLeftovers]=useState('');
+  const [freeReq,setFreeReq]=useState('');
+  const [loading,setLoading]=useState(false);
+  const [suggestions,setSuggestions]=useState([]);
+  const [err,setErr]=useState('');
+  const [ok,setOk]=useState('');
+  const [chatMsgs,setChatMsgs]=useState([
+    {role:'assistant',content:'こんにちは！小鉢のご相談をどうぞ。\nライブラリの料理から、食材・気分・条件で絞り込んでご提案します。'}
+  ]);
+  const [chatIn,setChatIn]=useState('');
+  const [chatLoad,setChatLoad]=useState(false);
+  // Library state
+  const [libSearch,setLibSearch]=useState('');
+  const [libCat,setLibCat]=useState('すべて');
+  const [showModal,setShowModal]=useState(false);
+  const [editItem,setEditItem]=useState(null);
+  const [form,setForm]=useState({name:'',category:'和',ingredients:'',url:'',memo:''});
+  const chatEnd=useRef(null);
+
+  /* sync on mount */
+  useEffect(()=>{syncFromGas();},[gasUrl]);
+  useEffect(()=>{chatEnd.current?.scrollIntoView({behavior:'smooth'});},[chatMsgs]);
+
+  async function syncFromGas(){
+    if(!gasUrl){setGasOk(null);return;}
+    const d=await gasRequest(gasUrl,'get',{});
+    if(!d){setGasOk(false);return;}
+    setGasOk(true);
+    if(d.history?.length)setHistory(d.history);
+    if(d.library?.length)setLibrary(d.library);
+  }
+
+  async function saveLibraryRemote(lib){
+    LS.set('k-library',lib);
+    if(gasUrl)await gasRequest(gasUrl,'post',{action:'saveLibrary',recipes:lib});
+  }
+  async function saveHistoryRemote(hist){
+    LS.set('k-history',hist);
+  }
+
+  function flash(msg,type){
+    if(type==='ok')setOk(msg);else setErr(msg);
+    setTimeout(()=>{setOk('');setErr('');},3500);
+  }
+
+  /* ── AI call ───────────────────────────────────────────────── */
+  async function callAI(messages,system,maxTok=1000){
+    if(!gasUrl){flash('設定タブでGAS URLを入力してください','err');return null;}
+    const contents=[
+      ...(system?[{role:'user',parts:[{text:system}]},{role:'model',parts:[{text:'わかりました。'}]}]:[]),
+      ...messages.map(m=>({role:m.role==='assistant'?'model':'user',parts:[{text:m.content}]}))
+    ];
+    const d=await gasRequest(gasUrl,'post',{action:'callAI',contents});
+    if(!d||!d.text)throw new Error('AI呼び出しに失敗しました');
+    return d.text;
+  }
+
+  /* ── 提案生成 ───────────────────────────────────────────────── */
+  const recentNames=history.slice(-14).flatMap(x=>x.dishes.map(d=>d.name));
+
+  async function generate(){
+    if(library.length<3){flash('ライブラリに料理を3品以上登録してください','err');return;}
+    setLoading(true);setErr('');setSuggestions([]);
+
+    const available=library.filter(r=>!recentNames.includes(r.name));
+    if(available.length<3){
+      flash('かぶり除外後の候補が3品未満です。履歴をリセットするかライブラリを増やしてください','err');
+      setLoading(false);return;
+    }
+    const leftoverList=leftovers.split(/[、,，\s]+/).map(s=>s.trim()).filter(Boolean);
+    const libJson=available.map(r=>({name:r.name,category:r.category,ingredients:r.ingredients,url:r.url}));
+
+    const prompt=`以下は飲食店の小鉢ライブラリです。この中から今日の定食に添える小鉢3品を選んでください。
+
+【ライブラリ（候補一覧）】
+${JSON.stringify(libJson,null,2)}
+
+【前日の余り食材（優先使用）】: ${leftoverList.length?leftoverList.join('、'):'特になし'}
+【追加リクエスト】: ${freeReq||'特になし'}
+
+選定条件:
+- 3品はジャンル・調理法・味が偏らない組み合わせ
+- 余り食材がある場合、その食材を含む料理を優先
+- ライブラリ外の料理は選ばない
+
+必ずJSON形式のみ返すこと。前置き不要。
+{"picks":[{"name":"料理名","reason":"選んだ理由（20字以内）","usesLeftover":true,"leftoverIngredient":"食材名またはnull"}]}`;
+
+    try{
+      const txt=await callAI([{role:'user',content:prompt}],null,600);
+      if(!txt)return;
+      const parsed=JSON.parse(txt.replace(/```json|```/g,'').trim());
+      const picks=(parsed.picks||[]).map(p=>{
+        const lib=library.find(r=>r.name===p.name)||{};
+        return {...p,...lib};
+      });
+      setSuggestions(picks);
+    }catch(e){flash('生成失敗: '+e.message,'err');}
+    setLoading(false);
+  }
+
+  async function saveToday(){
+    if(!suggestions.length)return;
+    const today=new Date().toLocaleDateString('ja-JP',{year:'numeric',month:'long',day:'numeric',weekday:'short'});
+    const entry={date:today,dishes:suggestions,leftovers};
+    const nh=[...history,entry].slice(-30);
+    setHistory(nh);
+    await saveHistoryRemote(nh);
+    if(gasUrl)await gasRequest(gasUrl,'post',{action:'saveHistory',date:today,dishes:suggestions,leftovers});
+    flash('保存しました','ok');
+  }
+
+  async function clearHistory(){
+    if(!confirm('履歴をすべて削除しますか？'))return;
+    setHistory([]);LS.set('k-history',[]);
+    if(gasUrl)await gasRequest(gasUrl,'post',{action:'clearHistory'});
+    flash('履歴を削除しました','ok');
+  }
+
+  /* ── Library CRUD ──────────────────────────────────────────── */
+  function openAdd(){setEditItem(null);setForm({name:'',category:'和',ingredients:'',url:'',memo:''});setShowModal(true);}
+  function openEdit(item){setEditItem(item);setForm({name:item.name,category:item.category,ingredients:item.ingredients,url:item.url||'',memo:item.memo||''});setShowModal(true);}
+  async function saveForm(){
+    if(!form.name.trim()){flash('料理名は必須です','err');return;}
+    let newLib;
+    if(editItem){
+      newLib=library.map(r=>r.id===editItem.id?{...r,...form}:r);
+    }else{
+      newLib=[...library,{id:uid(),...form}];
+    }
+    setLibrary(newLib);
+    await saveLibraryRemote(newLib);
+    setShowModal(false);
+    flash(editItem?'更新しました':'追加しました','ok');
+  }
+  async function deleteItem(id){
+    if(!confirm('このレシピを削除しますか？'))return;
+    const newLib=library.filter(r=>r.id!==id);
+    setLibrary(newLib);
+    await saveLibraryRemote(newLib);
+    flash('削除しました','ok');
+  }
+
+  /* ── Chat ──────────────────────────────────────────────────── */
+  async function sendChat(quick){
+    const text=quick||chatIn.trim();
+    if(!text||chatLoad)return;
+    const um={role:'user',content:text};
+    const nm=[...chatMsgs,um];
+    setChatMsgs(nm);setChatIn('');setChatLoad(true);
+    const libSummary=library.slice(0,40).map(r=>`・${r.name}（${r.category}）食材:${r.ingredients}`).join('\n');
+    const sys=`飲食店の日替わり小鉢メニュー提案アシスタントです。
+登録ライブラリ（一部）:
+${libSummary}
+余り食材:${leftovers||'なし'} 最近使用:${recentNames.slice(-7).join('、')||'なし'}
+ライブラリ内の料理を中心に、具体的・簡潔に日本語で提案してください。`;
+    try{
+      const reply=await callAI(nm.map(m=>({role:m.role,content:m.content})),sys,600);
+      if(reply)setChatMsgs([...nm,{role:'assistant',content:reply}]);
+    }catch(e){setChatMsgs([...nm,{role:'assistant',content:'エラー: '+e.message}]);}
+    setChatLoad(false);
+  }
+
+  /* ── Filtered library ──────────────────────────────────────── */
+  const filtered=useMemo(()=>library.filter(r=>{
+    const matchCat=libCat==='すべて'||r.category===libCat;
+    const q=libSearch.toLowerCase();
+    const matchQ=!q||r.name.toLowerCase().includes(q)||r.ingredients.toLowerCase().includes(q);
+    return matchCat&&matchQ;
+  }),[library,libCat,libSearch]);
+
+  /* ── Render ────────────────────────────────────────────────── */
+  const nav=[
+    {id:'suggest',icon:'ti-sparkles',label:'今日の提案'},
+    {id:'library',icon:'ti-books',label:'レシピライブラリ',badge:library.length},
+    {id:'history',icon:'ti-history',label:'履歴管理'},
+    {id:'chat',icon:'ti-message-circle',label:'チャット相談'},
+    {id:'settings',icon:'ti-settings',label:'設定'},
+  ];
+
+  const sidebar=h('div',{className:'sidebar'},
+    h('div',{className:'sb-logo'},
+      h('h1',null,h('i',{className:'ti ti-bowl-spoon'}),'小鉢提案'),
+      h('p',null,'日替わり小鉢 AIアシスト')
+    ),
+    h('div',{className:'sb-nav'},
+      nav.map(({id,icon,label,badge})=>h('div',{key:id,
+        className:'nav-item'+(tab===id?' active':''),onClick:()=>setTab(id)},
+        h('i',{className:'ti '+icon}),label,
+        badge!=null&&h('span',{className:'nav-badge'},badge)
+      ))
+    ),
+    h('div',{className:'sb-footer'},
+      gasUrl
+        ?h('span',null,h('span',{className:'sync-dot '+(gasOk?'sync-ok':'sync-no')}),gasOk?'スタッフ共有中':'GAS未接続')
+        :h('span',null,h('span',{className:'sync-dot sync-no'}),'個人モード（このブラウザのみ）')
+    )
+  );
+
+  /* ── Page: 提案 ────────────────────────────────────────────── */
+  const suggestPage=h('div',null,
+    h('div',{className:'page-title'},h('i',{className:'ti ti-sparkles'}),'今日の提案'),
+    err&&h('div',{className:'alert ae'},h('i',{className:'ti ti-circle-x'}),err),
+    ok&&h('div',{className:'alert as'},h('i',{className:'ti ti-circle-check'}),ok),
+    !apiKey&&h('div',{className:'alert aw'},h('i',{className:'ti ti-alert-triangle'}),'設定タブでAnthropicのAPIキーを入力してください。'),
+
+    h('div',{className:'card'},
+      h('div',{className:'card-title'},h('i',{className:'ti ti-carrot'}),'前日の余り食材'),
+      h('textarea',{placeholder:'例: ゴボウ、こんにゃく、大葉、卵（複数は読点で区切る）',value:leftovers,onChange:ev=>setLeftovers(ev.target.value)}),
+      h('label',null,'追加リクエスト（任意）'),
+      h('input',{type:'text',placeholder:'例: 揚げ物なし・さっぱり系中心・15分以内',value:freeReq,onChange:ev=>setFreeReq(ev.target.value)}),
+      recentNames.length>0&&h('div',{style:{marginTop:'1rem'}},
+        h('div',{className:'card-title'},h('i',{className:'ti ti-ban'}),'自動除外（直近14日間）'),
+        h('div',{className:'tags'},recentNames.slice(-12).map((d,i)=>h('span',{key:i,className:'tag'},d)))
+      ),
+      h('div',{style:{display:'flex',gap:8,flexWrap:'wrap',marginTop:'1rem',alignItems:'center'}},
+        h('button',{className:'btn primary',onClick:generate,disabled:loading||!apiKey},
+          loading
+            ?h('span',null,h('span',{className:'dots'},h('span',{className:'dot'}),h('span',{className:'dot'}),h('span',{className:'dot'})),' 提案中...')
+            :h('span',null,h('i',{className:'ti ti-sparkles'}),' ライブラリから3品を提案する')
+        ),
+        suggestions.length>0&&h('button',{className:'btn',onClick:saveToday},
+          h('i',{className:'ti ti-device-floppy'}),' 履歴に保存'
+        )
+      )
+    ),
+
+    suggestions.length>0
+      ?h('div',null,suggestions.map((d,i)=>h('div',{key:i,className:'dish-card'},
+          h('div',{style:{display:'flex',gap:10,alignItems:'flex-start'}},
+            h('span',{className:'dish-num'},i+1),
+            h('div',{style:{flex:1}},
+              h('div',{style:{display:'flex',alignItems:'center',gap:7,flexWrap:'wrap',marginBottom:4}},
+                h('span',{className:'dish-name'},d.name),
+                h('span',{className:catCls(d.category)},d.category),
+                d.usesLeftover&&h('span',{className:'badge bl'},
+                  h('i',{className:'ti ti-recycle',style:{fontSize:10}}),' 余り活用')
+              ),
+              d.reason&&h('div',{className:'dish-reason'},d.reason),
+              d.ingredients&&h('div',{className:'tags',style:{marginBottom:6}},
+                d.ingredients.split(/[,、，]/).map((s,j)=>{
+                  const lo=leftovers.split(/[、,，\s]+/).map(x=>x.trim());
+                  const hi=lo.some(l=>l&&s.includes(l));
+                  return h('span',{key:j,className:'tag'+(hi?' highlight':'')},s.trim());
+                })
+              ),
+              d.url&&h('a',{href:d.url,target:'_blank',rel:'noopener',
+                style:{fontSize:12,color:'var(--blue)',display:'inline-flex',alignItems:'center',gap:3,textDecoration:'none'}},
+                h('i',{className:'ti ti-external-link'}),' レシピを見る')
+            )
+          )
+        )))
+      :!loading&&h('div',{className:'empty'},
+          h('i',{className:'ti ti-bowl-spoon'}),
+          h('p',null,`ライブラリに${library.length}品登録済み。余り食材を入力して「3品を提案する」を押してください`)
+        )
+  );
+
+  /* ── Page: ライブラリ ──────────────────────────────────────── */
+  const libraryPage=h('div',null,
+    h('div',{className:'page-title'},h('i',{className:'ti ti-books'}),'レシピライブラリ'),
+    err&&h('div',{className:'alert ae'},h('i',{className:'ti ti-circle-x'}),err),
+    ok&&h('div',{className:'alert as'},h('i',{className:'ti ti-circle-check'}),ok),
+
+    h('div',{className:'lib-toolbar'},
+      h('input',{type:'text',placeholder:'料理名・食材で検索...',value:libSearch,onChange:ev=>setLibSearch(ev.target.value)}),
+      h('select',{value:libCat,onChange:ev=>setLibCat(ev.target.value)},
+        ['すべて',...CATS].map(c=>h('option',{key:c,value:c},c))
+      ),
+      h('span',{className:'lib-count'},`${filtered.length} / ${library.length}品`),
+      h('button',{className:'btn primary',onClick:openAdd},h('i',{className:'ti ti-plus'}),' 追加')
+    ),
+
+    filtered.length===0
+      ?h('div',{className:'empty'},h('i',{className:'ti ti-search'}),h('p',null,'該当する料理がありません'))
+      :h('div',{className:'lib-grid'},
+          filtered.map(r=>h('div',{key:r.id,className:'lib-card'},
+            h('div',{style:{display:'flex',alignItems:'flex-start',gap:6,marginBottom:2}},
+              h('span',{className:'lib-card-name',style:{flex:1}},r.name),
+              h('span',{className:catCls(r.category)},r.category)
+            ),
+            r.ingredients&&h('div',{className:'lib-card-ing'},r.ingredients),
+            r.memo&&h('div',{style:{fontSize:11,color:'var(--g400)',fontStyle:'italic'}},r.memo),
+            h('div',{className:'lib-card-foot'},
+              r.url
+                ?h('a',{href:r.url,target:'_blank',rel:'noopener'},h('i',{className:'ti ti-external-link'}),' レシピ')
+                :h('span',null),
+              h('button',{className:'btn sm',onClick:()=>openEdit(r)},h('i',{className:'ti ti-pencil'})),
+              h('button',{className:'btn sm danger',onClick:()=>deleteItem(r.id)},h('i',{className:'ti ti-trash'}))
+            )
+          ))
+        )
+  );
+
+  /* ── Page: 履歴 ────────────────────────────────────────────── */
+  const histPage=h('div',null,
+    h('div',{className:'page-title'},h('i',{className:'ti ti-history'}),'履歴管理'),
+    ok&&h('div',{className:'alert as'},h('i',{className:'ti ti-circle-check'}),ok),
+    h('div',{className:'card'},
+      h('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'1rem'}},
+        h('div',{className:'card-title',style:{margin:0}},h('i',{className:'ti ti-calendar'}),'提案履歴（直近30日）'),
+        h('div',{style:{display:'flex',gap:6}},
+          gasUrl&&h('button',{className:'btn sm',onClick:syncFromGas},h('i',{className:'ti ti-refresh'}),' 同期'),
+          h('button',{className:'btn sm danger',onClick:clearHistory},h('i',{className:'ti ti-trash'}),' 全削除')
+        )
+      ),
+      history.length===0
+        ?h('div',{className:'empty',style:{padding:'2rem'}},h('i',{className:'ti ti-notes'}),h('p',null,'まだ履歴がありません'))
+        :h('div',null,[...history].reverse().map((item,i)=>
+            h('div',{key:i,className:'hist-row'},
+              h('div',{className:'hist-date'},h('i',{className:'ti ti-calendar'}),item.date,
+                item.leftovers&&h('span',{style:{fontSize:11,color:'#9ca3af',marginLeft:8,fontWeight:'normal'}},
+                  `余り: ${item.leftovers.slice(0,24)}${item.leftovers.length>24?'…':''}`)),
+              h('div',{className:'tags',style:{marginTop:4}},
+                (item.dishes||[]).map((d,j)=>h('span',{key:j,className:'tag'},
+                  h('span',{className:catCls(d.category)+' badge',style:{fontSize:10,marginRight:3,padding:'1px 6px'}},d.category),
+                  d.name)))
+            )
+          ))
+    )
+  );
+
+  /* ── Page: チャット ────────────────────────────────────────── */
+  const quickQs=['余り食材を活かした提案を','さっぱり系を3品選んで','揚げ物以外で組み合わせて','彩りが良くなる3品は？','和食でまとめて','登録料理の中で簡単なものは？'];
+  const chatPage=h('div',null,
+    h('div',{className:'page-title'},h('i',{className:'ti ti-message-circle'}),'チャット相談'),
+    h('div',{className:'chat-wrap'},
+      h('div',{className:'chat-msgs'},
+        chatMsgs.map((m,i)=>h('div',{key:i,className:'msg '+m.role},
+          m.content.split('\n').map((l,j)=>h('div',{key:j},l||h('br',null)))
+        )),
+        chatLoad&&h('div',{className:'msg assistant'},
+          h('span',{className:'dots'},h('span',{className:'dot'}),h('span',{className:'dot'}),h('span',{className:'dot'}))),
+        h('div',{ref:chatEnd})
+      ),
+      h('div',{className:'chat-foot'},
+        h('div',{className:'qbtns'},
+          quickQs.map((q,i)=>h('button',{key:i,className:'qbtn',onClick:()=>sendChat(q)},q))
+        ),
+        h('div',{className:'chat-row'},
+          h('input',{type:'text',placeholder:'食材・条件・気分など何でも...',value:chatIn,
+            onChange:ev=>setChatIn(ev.target.value),
+            onKeyDown:ev=>{if(ev.key==='Enter'&&!ev.shiftKey){ev.preventDefault();sendChat();}}}),
+          h('button',{className:'btn primary',onClick:()=>sendChat(),disabled:chatLoad||!chatIn.trim()},
+            h('i',{className:'ti ti-send'}))
+        )
+      )
+    )
+  );
+
+  /* ── Page: 設定 ────────────────────────────────────────────── */
+  const settingsPage=h('div',null,
+    h('div',{className:'page-title'},h('i',{className:'ti ti-settings'}),'設定'),
+    ok&&h('div',{className:'alert as'},h('i',{className:'ti ti-circle-check'}),ok),
+    h('div',{className:'card'},
+      h('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:'.75rem'}},
+        h('span',{className:'step'},'1'),h('span',{style:{fontWeight:700}},'Google Apps Script URL（必須）')),
+      h('input',{type:'url',placeholder:'https://script.google.com/macros/s/xxxxx/exec',
+        value:gasUrl,onChange:ev=>{setGasUrl(ev.target.value);LS.set('k-gasurl',ev.target.value);}}),
+      gasUrl&&h('div',{style:{marginTop:6}},
+        h('button',{className:'btn sm',onClick:syncFromGas},h('i',{className:'ti ti-refresh'}),' 今すぐ同期'),
+        gasOk===false&&h('span',{style:{fontSize:12,color:'var(--red)',marginLeft:8}},'接続できません')
+      ),
+      h('p',{style:{fontSize:11,color:'var(--g400)',marginTop:5}},
+        'ライブラリ・履歴の共有 ＋ AI呼び出しをGAS経由で行います。GASコード内にGemini APIキーを設定してください。'),
+      h('div',{className:'section-sep'},'Google Apps Script 設定手順'),
+      h('ol',{style:{fontSize:12,color:'var(--g700)',lineHeight:2.1,paddingLeft:'1.25rem'}},
+        h('li',null,'Google ドライブで「新しいスプレッドシート」を作成'),
+        h('li',null,'「拡張機能」→「Apps Script」を開く'),
+        h('li',null,'下のコードをコピーして貼り付け'),
+        h('li',null,h('strong',null,"1行目の 'ここにGemini APIキーを貼り付ける' を実際のキーに書き換える")),
+        h('li',null,'保存（Ctrl+S）'),
+        h('li',null,'「デプロイ」→「新しいデプロイ」→ 種類「ウェブアプリ」'),
+        h('li',null,'実行ユーザー:自分 ／ アクセス:全員 → デプロイ → URLをコピー'),
+        h('li',null,'上のフォームに貼り付けて「今すぐ同期」を押す')
+      ),
+      h('div',{className:'code-block'},
+        h('button',{className:'copy-btn',onClick:()=>navigator.clipboard.writeText(GAS_CODE).then(()=>flash('コピーしました','ok'))},
+          h('i',{className:'ti ti-copy'}),' コピー'),
+        h('pre',null,GAS_CODE)
+      )
+    )
+  );
+
+  /* ── Modal: レシピ追加・編集 ────────────────────────────────── */
+  const modal=showModal&&h('div',{className:'modal-overlay',onClick:e=>{if(e.target.className==='modal-overlay')setShowModal(false);}},
+    h('div',{className:'modal'},
+      h('div',{className:'modal-title'},
+        h('i',{className:'ti ti-'+(editItem?'pencil':'plus'),style:{color:'var(--green)'}}),
+        editItem?'レシピを編集':'レシピを追加'
+      ),
+      h('label',null,'料理名 *'),
+      h('input',{type:'text',placeholder:'例: ほうれん草のお浸し',value:form.name,
+        onChange:ev=>setForm({...form,name:ev.target.value})}),
+      h('label',null,'カテゴリ'),
+      h('select',{value:form.category,onChange:ev=>setForm({...form,category:ev.target.value})},
+        CATS.map(c=>h('option',{key:c,value:c},c))
+      ),
+      h('label',null,'食材（カンマ区切り）'),
+      h('input',{type:'text',placeholder:'例: ほうれん草,だし醤油,かつお節',value:form.ingredients,
+        onChange:ev=>setForm({...form,ingredients:ev.target.value})}),
+      h('label',null,'レシピURL（任意）'),
+      h('input',{type:'url',placeholder:'https://www.sirogohan.com/recipe/...',value:form.url,
+        onChange:ev=>setForm({...form,url:ev.target.value})}),
+      h('label',null,'メモ（任意）'),
+      h('input',{type:'text',placeholder:'例: 季節限定・人気メニュー',value:form.memo,
+        onChange:ev=>setForm({...form,memo:ev.target.value})}),
+      err&&h('div',{className:'alert ae',style:{marginTop:'.75rem'}},h('i',{className:'ti ti-circle-x'}),err),
+      h('div',{className:'modal-foot'},
+        h('button',{className:'btn',onClick:()=>setShowModal(false)},'キャンセル'),
+        h('button',{className:'btn primary',onClick:saveForm},
+          h('i',{className:'ti ti-check'}),editItem?' 更新':' 追加')
+      )
+    )
+  );
+
+  return h('div',{className:'layout'},
+    sidebar,
+    h('div',{className:'main'},
+      tab==='suggest'?suggestPage:
+      tab==='library'?libraryPage:
+      tab==='history'?histPage:
+      tab==='chat'?chatPage:
+      settingsPage
+    ),
+    modal
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(h(App));
+</script>
+</body>
+</html>
