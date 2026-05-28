@@ -175,63 +175,49 @@ const GEMINI_API_KEY='ここにGemini APIキーを貼り付ける';
 function getOrCreate(name){return SS.getSheetByName(name)||SS.insertSheet(name);}
 
 function doGet(e){
-  const cb=e&&e.parameter&&e.parameter.callback;
-  const body=e&&e.parameter&&e.parameter.body;
-  if(body){
-    const b=JSON.parse(decodeURIComponent(body));
-    if(b.action==='callAI'){
-      const url='https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key='+GEMINI_API_KEY;
-      const res=UrlFetchApp.fetch(url,{method:'post',contentType:'application/json',payload:JSON.stringify({contents:b.contents})});
-      const d=JSON.parse(res.getContentText());
-      return out({text:d.candidates[0].content.parts[0].text},cb);
-    }
+  const action=e&&e.parameter&&e.parameter.action;
+  const bodyStr=e&&e.parameter&&e.parameter.body;
+  const b=bodyStr?JSON.parse(bodyStr):{};
+
+  if(action==='callAI'){
+    const url='https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key='+GEMINI_API_KEY;
+    const res=UrlFetchApp.fetch(url,{method:'post',contentType:'application/json',payload:JSON.stringify({contents:b.contents})});
+    const d=JSON.parse(res.getContentText());
+    return out({text:d.candidates[0].content.parts[0].text});
+  }
+  if(action==='saveHistory'){
+    getOrCreate('history').appendRow([b.date,JSON.stringify(b.dishes),b.leftovers||'']);
+    return out({ok:true});
+  }
+  if(action==='clearHistory'){
+    const s=getOrCreate('history'),last=s.getLastRow();
+    if(last>1)s.deleteRows(2,last-1);
+    return out({ok:true});
+  }
+  if(action==='saveLibrary'){
+    const s=getOrCreate('library');
+    if(s.getLastRow()>1)s.deleteRows(2,s.getLastRow()-1);
+    b.recipes.forEach(r=>s.appendRow([r.id,r.name,r.category,r.ingredients,r.url,r.memo||'']));
+    return out({ok:true});
   }
   const h=getOrCreate('history').getDataRange().getValues().slice(1)
     .map(r=>({date:r[0],dishes:JSON.parse(r[1]||'[]'),leftovers:r[2]||''}));
   const l=getOrCreate('library').getDataRange().getValues().slice(1)
     .map(r=>({id:r[0],name:r[1],category:r[2],ingredients:r[3],url:r[4],memo:r[5]||''}));
-  return out({history:h,library:l},cb);
+  return out({history:h,library:l});
 }
 
-function doPost(e){
-  const b=JSON.parse(e.postData.contents);
-  if(b.action==='saveHistory'){
-    getOrCreate('history').appendRow([b.date,JSON.stringify(b.dishes),b.leftovers||'']);
-  }else if(b.action==='clearHistory'){
-    const s=getOrCreate('history'),last=s.getLastRow();
-    if(last>1)s.deleteRows(2,last-1);
-  }else if(b.action==='saveLibrary'){
-    const s=getOrCreate('library');
-    if(s.getLastRow()>1)s.deleteRows(2,s.getLastRow()-1);
-    b.recipes.forEach(r=>s.appendRow([r.id,r.name,r.category,r.ingredients,r.url,r.memo||'']));
-  }
-  return out({ok:true});
-}
-
-function out(obj,cb){
-  const json=JSON.stringify(obj);
-  const txt=cb?cb+'('+json+')':json;
-  const mime=cb?ContentService.MimeType.JAVASCRIPT:ContentService.MimeType.JSON;
-  return ContentService.createTextOutput(txt).setMimeType(mime);
+function out(obj){
+  const o=ContentService.createTextOutput(JSON.stringify(obj));
+  o.setMimeType(ContentService.MimeType.JSON);
+  return o;
 }`;
 
 async function gasRequest(url,action,body){
   try{
-    if(action==='get'){
-      return await new Promise((resolve,reject)=>{
-        const id='cb'+Date.now();
-        window[id]=function(d){resolve(d);cleanup();};
-        const s=document.createElement('script');
-        s.src=url+'?callback='+id;
-        s.onerror=()=>{reject(new Error('GAS error'));cleanup();};
-        function cleanup(){document.head.removeChild(s);delete window[id];}
-        document.head.appendChild(s);
-        setTimeout(()=>{reject(new Error('timeout'));cleanup();},10000);
-      });
-    }
-    await fetch(url,{method:'POST',mode:'no-cors',
-      headers:{'Content-Type':'text/plain'},body:JSON.stringify({action,...body})});
-    return {ok:true};
+    const params=new URLSearchParams({action,body:JSON.stringify(body||{})});
+    const r=await fetch(url+'?'+params.toString(),{redirect:'follow'});
+    return await r.json();
   }catch{return null;}
 }
 
@@ -295,21 +281,9 @@ function App(){
       ...(system?[{role:'user',parts:[{text:system}]},{role:'model',parts:[{text:'わかりました。'}]}]:[]),
       ...messages.map(m=>({role:m.role==='assistant'?'model':'user',parts:[{text:m.content}]}))
     ];
-    return await new Promise((resolve,reject)=>{
-      const id='cb'+Date.now();
-      window[id]=function(d){
-        if(d&&d.text)resolve(d.text);
-        else reject(new Error('AI呼び出しに失敗しました'));
-        cleanup();
-      };
-      const s=document.createElement('script');
-      const params=encodeURIComponent(JSON.stringify({action:'callAI',contents}));
-      s.src=gasUrl+'?callback='+id+'&body='+params;
-      s.onerror=()=>{reject(new Error('GAS error'));cleanup();};
-      function cleanup(){document.head.removeChild(s);delete window[id];}
-      document.head.appendChild(s);
-      setTimeout(()=>{reject(new Error('timeout'));cleanup();},30000);
-    });
+    const d=await gasRequest(gasUrl,'callAI',{action:'callAI',contents});
+    if(!d||!d.text)throw new Error('AI呼び出しに失敗しました');
+    return d.text;
   }
 
   /* ── 提案生成 ───────────────────────────────────────────────── */
