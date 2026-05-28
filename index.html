@@ -170,54 +170,42 @@ function uid(){return 'r'+Date.now()+Math.random().toString(36).slice(2,6);}
 
 /* ── GAS helpers ─────────────────────────────────────────────── */
 const GAS_CODE=`const SS=SpreadsheetApp.getActiveSpreadsheet();
-const GEMINI_API_KEY='ここにGemini APIキーを貼り付ける';
-
 function getOrCreate(name){return SS.getSheetByName(name)||SS.insertSheet(name);}
-
-function doGet(e){
-  const action=e&&e.parameter&&e.parameter.action;
-  const bodyStr=e&&e.parameter&&e.parameter.body;
-  const b=bodyStr?JSON.parse(bodyStr):{};
-
-  if(action==='callAI'){
-    const url='https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key='+GEMINI_API_KEY;
-    const res=UrlFetchApp.fetch(url,{method:'post',contentType:'application/json',payload:JSON.stringify({contents:b.contents})});
-    const d=JSON.parse(res.getContentText());
-    return out({text:d.candidates[0].content.parts[0].text});
-  }
-  if(action==='saveHistory'){
-    getOrCreate('history').appendRow([b.date,JSON.stringify(b.dishes),b.leftovers||'']);
-    return out({ok:true});
-  }
-  if(action==='clearHistory'){
-    const s=getOrCreate('history'),last=s.getLastRow();
-    if(last>1)s.deleteRows(2,last-1);
-    return out({ok:true});
-  }
-  if(action==='saveLibrary'){
-    const s=getOrCreate('library');
-    if(s.getLastRow()>1)s.deleteRows(2,s.getLastRow()-1);
-    b.recipes.forEach(r=>s.appendRow([r.id,r.name,r.category,r.ingredients,r.url,r.memo||'']));
-    return out({ok:true});
-  }
+function doGet(){
   const h=getOrCreate('history').getDataRange().getValues().slice(1)
     .map(r=>({date:r[0],dishes:JSON.parse(r[1]||'[]'),leftovers:r[2]||''}));
   const l=getOrCreate('library').getDataRange().getValues().slice(1)
     .map(r=>({id:r[0],name:r[1],category:r[2],ingredients:r[3],url:r[4],memo:r[5]||''}));
   return out({history:h,library:l});
 }
-
+function doPost(e){
+  const b=JSON.parse(e.postData.contents);
+  if(b.action==='saveHistory'){
+    getOrCreate('history').appendRow([b.date,JSON.stringify(b.dishes),b.leftovers||'']);
+  }else if(b.action==='clearHistory'){
+    const s=getOrCreate('history'),last=s.getLastRow();
+    if(last>1)s.deleteRows(2,last-1);
+  }else if(b.action==='saveLibrary'){
+    const s=getOrCreate('library');
+    if(s.getLastRow()>1)s.deleteRows(2,s.getLastRow()-1);
+    b.recipes.forEach(r=>s.appendRow([r.id,r.name,r.category,r.ingredients,r.url,r.memo||'']));
+  }
+  return out({ok:true});
+}
 function out(obj){
   const o=ContentService.createTextOutput(JSON.stringify(obj));
-  o.setMimeType(ContentService.MimeType.JSON);
-  return o;
+  o.setMimeType(ContentService.MimeType.JSON);return o;
 }`;
 
 async function gasRequest(url,action,body){
   try{
-    const params=new URLSearchParams({action,body:JSON.stringify(body||{})});
-    const r=await fetch(url+'?'+params.toString(),{redirect:'follow'});
-    return await r.json();
+    if(action==='get'){
+      const r=await fetch(url+'?action=get',{redirect:'follow'});
+      return await r.json();
+    }
+    await fetch(url,{method:'POST',redirect:'follow',
+      headers:{'Content-Type':'text/plain'},body:JSON.stringify({action,...body})});
+    return {ok:true};
   }catch{return null;}
 }
 
@@ -276,14 +264,18 @@ function App(){
 
   /* ── AI call ───────────────────────────────────────────────── */
   async function callAI(messages,system,maxTok=1000){
-    if(!gasUrl){flash('設定タブでGAS URLを入力してください','err');return null;}
+    if(!apiKey){flash('設定タブでGemini APIキーを入力してください','err');return null;}
     const contents=[
       ...(system?[{role:'user',parts:[{text:system}]},{role:'model',parts:[{text:'わかりました。'}]}]:[]),
       ...messages.map(m=>({role:m.role==='assistant'?'model':'user',parts:[{text:m.content}]}))
     ];
-    const d=await gasRequest(gasUrl,'callAI',{action:'callAI',contents});
-    if(!d||!d.text)throw new Error('AI呼び出しに失敗しました');
-    return d.text;
+    const res=await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents})}
+    );
+    const d=await res.json();
+    if(d.error)throw new Error(d.error.message);
+    return d.candidates[0].content.parts[0].text;
   }
 
   /* ── 提案生成 ───────────────────────────────────────────────── */
@@ -433,7 +425,7 @@ ${libSummary}
     h('div',{className:'page-title'},h('i',{className:'ti ti-sparkles'}),'今日の提案'),
     err&&h('div',{className:'alert ae'},h('i',{className:'ti ti-circle-x'}),err),
     ok&&h('div',{className:'alert as'},h('i',{className:'ti ti-circle-check'}),ok),
-    !gasUrl&&h('div',{className:'alert aw'},h('i',{className:'ti ti-alert-triangle'}),'設定タブでGAS URLを入力してください。'),
+    !apiKey&&h('div',{className:'alert aw'},h('i',{className:'ti ti-alert-triangle'}),'設定タブでGemini APIキーを入力してください。'),
 
     h('div',{className:'card'},
       h('div',{className:'card-title'},h('i',{className:'ti ti-carrot'}),'前日の余り食材'),
@@ -585,7 +577,18 @@ ${libSummary}
     ok&&h('div',{className:'alert as'},h('i',{className:'ti ti-circle-check'}),ok),
     h('div',{className:'card'},
       h('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:'.75rem'}},
-        h('span',{className:'step'},'1'),h('span',{style:{fontWeight:700}},'Google Apps Script URL（必須）')),
+        h('span',{className:'step'},'1'),h('span',{style:{fontWeight:700}},'Gemini APIキー（必須・各自入力）')),
+      h('div',{className:'row2'},
+        h('input',{type:'password',placeholder:'AIzaSy...',value:apiKey,
+          onChange:ev=>{setApiKey(ev.target.value);LS.set('k-apikey',ev.target.value);}}),
+        h('a',{href:'https://aistudio.google.com/app/apikey',target:'_blank',rel:'noopener',className:'btn'},
+          h('i',{className:'ti ti-external-link'}),' 取得')
+      ),
+      h('p',{style:{fontSize:11,color:'var(--g400)',marginTop:5}},'このブラウザのみ保存。AI呼び出しに使用します。（Google AI Studioで無料取得）')
+    ),
+    h('div',{className:'card'},
+      h('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:'.75rem'}},
+        h('span',{className:'step'},'2'),h('span',{style:{fontWeight:700}},'Google Apps Script URL（ライブラリ・履歴の共有）')),
       h('input',{type:'url',placeholder:'https://script.google.com/macros/s/xxxxx/exec',
         value:gasUrl,onChange:ev=>{setGasUrl(ev.target.value);LS.set('k-gasurl',ev.target.value);}}),
       gasUrl&&h('div',{style:{marginTop:6}},
@@ -593,14 +596,12 @@ ${libSummary}
         gasOk===false&&h('span',{style:{fontSize:12,color:'var(--red)',marginLeft:8}},'接続できません')
       ),
       h('p',{style:{fontSize:11,color:'var(--g400)',marginTop:5}},
-        'ライブラリ・履歴の共有 ＋ AI呼び出しをGAS経由で行います。GASコード内にGemini APIキーを設定してください。'),
+        '設定するとライブラリ・履歴をスタッフ全員で共有できます。'),
       h('div',{className:'section-sep'},'Google Apps Script 設定手順'),
       h('ol',{style:{fontSize:12,color:'var(--g700)',lineHeight:2.1,paddingLeft:'1.25rem'}},
         h('li',null,'Google ドライブで「新しいスプレッドシート」を作成'),
         h('li',null,'「拡張機能」→「Apps Script」を開く'),
-        h('li',null,'下のコードをコピーして貼り付け'),
-        h('li',null,h('strong',null,"1行目の 'ここにGemini APIキーを貼り付ける' を実際のキーに書き換える")),
-        h('li',null,'保存（Ctrl+S）'),
+        h('li',null,'下のコードをコピーして貼り付け → 保存（Ctrl+S）'),
         h('li',null,'「デプロイ」→「新しいデプロイ」→ 種類「ウェブアプリ」'),
         h('li',null,'実行ユーザー:自分 ／ アクセス:全員 → デプロイ → URLをコピー'),
         h('li',null,'上のフォームに貼り付けて「今すぐ同期」を押す')
