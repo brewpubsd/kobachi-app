@@ -173,14 +173,26 @@ const GAS_CODE=`const SS=SpreadsheetApp.getActiveSpreadsheet();
 const GEMINI_API_KEY='ここにGemini APIキーを貼り付ける';
 
 function getOrCreate(name){return SS.getSheetByName(name)||SS.insertSheet(name);}
+
 function doGet(e){
   const cb=e&&e.parameter&&e.parameter.callback;
+  const body=e&&e.parameter&&e.parameter.body;
+  if(body){
+    const b=JSON.parse(decodeURIComponent(body));
+    if(b.action==='callAI'){
+      const url='https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key='+GEMINI_API_KEY;
+      const res=UrlFetchApp.fetch(url,{method:'post',contentType:'application/json',payload:JSON.stringify({contents:b.contents})});
+      const d=JSON.parse(res.getContentText());
+      return out({text:d.candidates[0].content.parts[0].text},cb);
+    }
+  }
   const h=getOrCreate('history').getDataRange().getValues().slice(1)
     .map(r=>({date:r[0],dishes:JSON.parse(r[1]||'[]'),leftovers:r[2]||''}));
   const l=getOrCreate('library').getDataRange().getValues().slice(1)
     .map(r=>({id:r[0],name:r[1],category:r[2],ingredients:r[3],url:r[4],memo:r[5]||''}));
   return out({history:h,library:l},cb);
 }
+
 function doPost(e){
   const b=JSON.parse(e.postData.contents);
   if(b.action==='saveHistory'){
@@ -192,18 +204,10 @@ function doPost(e){
     const s=getOrCreate('library');
     if(s.getLastRow()>1)s.deleteRows(2,s.getLastRow()-1);
     b.recipes.forEach(r=>s.appendRow([r.id,r.name,r.category,r.ingredients,r.url,r.memo||'']));
-  }else if(b.action==='callAI'){
-    const url='https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key='+GEMINI_API_KEY;
-    const res=UrlFetchApp.fetch(url,{
-      method:'post',
-      contentType:'application/json',
-      payload:JSON.stringify({contents:b.contents})
-    });
-    const d=JSON.parse(res.getContentText());
-    return out({text:d.candidates[0].content.parts[0].text});
   }
   return out({ok:true});
 }
+
 function out(obj,cb){
   const json=JSON.stringify(obj);
   const txt=cb?cb+'('+json+')':json;
@@ -212,27 +216,23 @@ function out(obj,cb){
 }`;
 
 async function gasRequest(url,action,body){
-  return new Promise((resolve)=>{
-    const cb='cb'+Date.now();
-    const s=document.createElement('script');
-    let settled=false;
-    function done(v){if(settled)return;settled=true;document.head.removeChild(s);delete window[cb];resolve(v);}
-    window[cb]=function(d){done(d);};
-    setTimeout(()=>done(null),10000);
+  try{
     if(action==='get'){
-      s.src=url+'?callback='+cb;
-    }else{
-      const form=new FormData();
-      form.append('payload',JSON.stringify({...body}));
-      fetch(url+'?callback='+cb,{method:'POST',body:form,mode:'no-cors'})
-        .then(()=>{
-          setTimeout(()=>{if(!settled)done({ok:true});},500);
-        }).catch(()=>done(null));
-      document.head.appendChild(s);
-      return;
+      return await new Promise((resolve,reject)=>{
+        const id='cb'+Date.now();
+        window[id]=function(d){resolve(d);cleanup();};
+        const s=document.createElement('script');
+        s.src=url+'?callback='+id;
+        s.onerror=()=>{reject(new Error('GAS error'));cleanup();};
+        function cleanup(){document.head.removeChild(s);delete window[id];}
+        document.head.appendChild(s);
+        setTimeout(()=>{reject(new Error('timeout'));cleanup();},10000);
+      });
     }
-    document.head.appendChild(s);
-  });
+    await fetch(url,{method:'POST',mode:'no-cors',
+      headers:{'Content-Type':'text/plain'},body:JSON.stringify({action,...body})});
+    return {ok:true};
+  }catch{return null;}
 }
 
 /* ── App ─────────────────────────────────────────────────────── */
@@ -295,9 +295,21 @@ function App(){
       ...(system?[{role:'user',parts:[{text:system}]},{role:'model',parts:[{text:'わかりました。'}]}]:[]),
       ...messages.map(m=>({role:m.role==='assistant'?'model':'user',parts:[{text:m.content}]}))
     ];
-    const d=await gasRequest(gasUrl,'post',{action:'callAI',contents});
-    if(!d||!d.text)throw new Error('AI呼び出しに失敗しました');
-    return d.text;
+    return await new Promise((resolve,reject)=>{
+      const id='cb'+Date.now();
+      window[id]=function(d){
+        if(d&&d.text)resolve(d.text);
+        else reject(new Error('AI呼び出しに失敗しました'));
+        cleanup();
+      };
+      const s=document.createElement('script');
+      const params=encodeURIComponent(JSON.stringify({action:'callAI',contents}));
+      s.src=gasUrl+'?callback='+id+'&body='+params;
+      s.onerror=()=>{reject(new Error('GAS error'));cleanup();};
+      function cleanup(){document.head.removeChild(s);delete window[id];}
+      document.head.appendChild(s);
+      setTimeout(()=>{reject(new Error('timeout'));cleanup();},30000);
+    });
   }
 
   /* ── 提案生成 ───────────────────────────────────────────────── */
@@ -651,4 +663,27 @@ ${libSummary}
       h('input',{type:'text',placeholder:'例: 季節限定・人気メニュー',value:form.memo,
         onChange:ev=>setForm({...form,memo:ev.target.value})}),
       err&&h('div',{className:'alert ae',style:{marginTop:'.75rem'}},h('i',{className:'ti ti-circle-x'}),err),
-      h('div',{className:
+      h('div',{className:'modal-foot'},
+        h('button',{className:'btn',onClick:()=>setShowModal(false)},'キャンセル'),
+        h('button',{className:'btn primary',onClick:saveForm},
+          h('i',{className:'ti ti-check'}),editItem?' 更新':' 追加')
+      )
+    )
+  );
+
+  return h('div',{className:'layout'},
+    sidebar,
+    h('div',{className:'main'},
+      tab==='suggest'?suggestPage:
+      tab==='library'?libraryPage:
+      tab==='history'?histPage:
+      tab==='chat'?chatPage:
+      settingsPage
+    ),
+    modal
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(h(App));
+</script>
+</body>
+</html>
