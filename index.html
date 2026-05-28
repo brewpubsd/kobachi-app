@@ -173,12 +173,13 @@ const GAS_CODE=`const SS=SpreadsheetApp.getActiveSpreadsheet();
 const GEMINI_API_KEY='ここにGemini APIキーを貼り付ける';
 
 function getOrCreate(name){return SS.getSheetByName(name)||SS.insertSheet(name);}
-function doGet(){
+function doGet(e){
+  const cb=e&&e.parameter&&e.parameter.callback;
   const h=getOrCreate('history').getDataRange().getValues().slice(1)
     .map(r=>({date:r[0],dishes:JSON.parse(r[1]||'[]'),leftovers:r[2]||''}));
   const l=getOrCreate('library').getDataRange().getValues().slice(1)
     .map(r=>({id:r[0],name:r[1],category:r[2],ingredients:r[3],url:r[4],memo:r[5]||''}));
-  return out({history:h,library:l});
+  return out({history:h,library:l},cb);
 }
 function doPost(e){
   const b=JSON.parse(e.postData.contents);
@@ -203,21 +204,35 @@ function doPost(e){
   }
   return out({ok:true});
 }
-function out(obj){
-  const o=ContentService.createTextOutput(JSON.stringify(obj));
-  o.setMimeType(ContentService.MimeType.JSON);return o;
+function out(obj,cb){
+  const json=JSON.stringify(obj);
+  const txt=cb?cb+'('+json+')':json;
+  const mime=cb?ContentService.MimeType.JAVASCRIPT:ContentService.MimeType.JSON;
+  return ContentService.createTextOutput(txt).setMimeType(mime);
 }`;
 
 async function gasRequest(url,action,body){
-  try{
+  return new Promise((resolve)=>{
+    const cb='cb'+Date.now();
+    const s=document.createElement('script');
+    let settled=false;
+    function done(v){if(settled)return;settled=true;document.head.removeChild(s);delete window[cb];resolve(v);}
+    window[cb]=function(d){done(d);};
+    setTimeout(()=>done(null),10000);
     if(action==='get'){
-      const r=await fetch(url+'?action=get',{redirect:'follow'});
-      return await r.json();
+      s.src=url+'?callback='+cb;
+    }else{
+      const form=new FormData();
+      form.append('payload',JSON.stringify({...body}));
+      fetch(url+'?callback='+cb,{method:'POST',body:form,mode:'no-cors'})
+        .then(()=>{
+          setTimeout(()=>{if(!settled)done({ok:true});},500);
+        }).catch(()=>done(null));
+      document.head.appendChild(s);
+      return;
     }
-    const r=await fetch(url,{method:'POST',redirect:'follow',
-      headers:{'Content-Type':'text/plain'},body:JSON.stringify({...body})});
-    return await r.json();
-  }catch{return null;}
+    document.head.appendChild(s);
+  });
 }
 
 /* ── App ─────────────────────────────────────────────────────── */
@@ -636,28 +651,4 @@ ${libSummary}
       h('input',{type:'text',placeholder:'例: 季節限定・人気メニュー',value:form.memo,
         onChange:ev=>setForm({...form,memo:ev.target.value})}),
       err&&h('div',{className:'alert ae',style:{marginTop:'.75rem'}},h('i',{className:'ti ti-circle-x'}),err),
-      h('div',{className:'modal-foot'},
-        h('button',{className:'btn',onClick:()=>setShowModal(false)},'キャンセル'),
-        h('button',{className:'btn primary',onClick:saveForm},
-          h('i',{className:'ti ti-check'}),editItem?' 更新':' 追加')
-      )
-    )
-  );
-
-  return h('div',{className:'layout'},
-    sidebar,
-    h('div',{className:'main'},
-      tab==='suggest'?suggestPage:
-      tab==='library'?libraryPage:
-      tab==='history'?histPage:
-      tab==='chat'?chatPage:
-      settingsPage
-    ),
-    modal
-  );
-}
-ReactDOM.createRoot(document.getElementById('root')).render(h(App));
-</script>
-</body>
-</html>
-
+      h('div',{className:
