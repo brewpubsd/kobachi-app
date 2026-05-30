@@ -223,6 +223,8 @@ function App(){
   const [history,setHistory]=useState(()=>LS.get('k-history')||[]);
   const [leftovers,setLeftovers]=useState('');
   const [freeReq,setFreeReq]=useState('');
+  const [manualPicks,setManualPicks]=React.useState([]);
+  const [showManual,setShowManual]=React.useState(false);
   const [loading,setLoading]=useState(false);
   const [suggestions,setSuggestions]=useState([]);
   const [err,setErr]=useState('');
@@ -652,4 +654,58 @@ ${libSummary}
         h('li',null,'上のフォームに貼り付けて「今すぐ同期」を押す')
       ),
       h('div',{className:'code-block'},
-        h('button',{className:'copy-btn',onClick:()=>navigator.clipboard.writeText(GAS_CODE).then(()=>flash('コピーしました','ok
+        h('button',{className:'copy-btn',onClick:()=>navigator.clipboard.writeText(GAS_CODE).then(()=>flash('コピーしました','ok'))},
+          h('i',{className:'ti ti-copy'}),' コピー'),
+        h('pre',null,GAS_CODE)
+      )
+    )
+  );
+
+  /* ── Modal: レシピ追加・編集 ────────────────────────────────── */
+  const modal=showModal&&h('div',{className:'modal-overlay',onClick:e=>{if(e.target.className==='modal-overlay')setShowModal(false);}},
+    h('div',{className:'modal'},
+      h('div',{className:'modal-title'},
+        h('i',{className:'ti ti-'+(editItem?'pencil':'plus'),style:{color:'var(--green)'}}),
+        editItem?'レシピを編集':'レシピを追加'
+      ),
+      h('label',null,'料理名 *'),
+      h('input',{type:'text',placeholder:'例: ほうれん草のお浸し',value:form.name,
+        onChange:ev=>setForm({...form,name:ev.target.value})}),
+      h('label',null,'カテゴリ'),
+      h('select',{value:form.category,onChange:ev=>setForm({...form,category:ev.target.value})},
+        CATS.map(c=>h('option',{key:c,value:c},c))
+      ),
+      h('label',null,'食材（カンマ区切り）'),
+      h('input',{type:'text',placeholder:'例: ほうれん草,だし醤油,かつお節',value:form.ingredients,
+        onChange:ev=>setForm({...form,ingredients:ev.target.value})}),
+      h('label',null,'レシピURL（任意）'),
+      h('input',{type:'url',placeholder:'https://www.sirogohan.com/recipe/...',value:form.url,
+        onChange:ev=>setForm({...form,url:ev.target.value})}),
+      h('label',null,'メモ（任意）'),
+      h('input',{type:'text',placeholder:'例: 季節限定・人気メニュー',value:form.memo,
+        onChange:ev=>setForm({...form,memo:ev.target.value})}),
+      err&&h('div',{className:'alert ae',style:{marginTop:'.75rem'}},h('i',{className:'ti ti-circle-x'}),err),
+      h('div',{className:'modal-foot'},
+        h('button',{className:'btn',onClick:()=>setShowModal(false)},'キャンセル'),
+        h('button',{className:'btn primary',onClick:saveForm},
+          h('i',{className:'ti ti-check'}),editItem?' 更新':' 追加')
+      )
+    )
+  );
+
+  return h('div',{className:'layout'},
+    sidebar,
+    h('div',{className:'main'},
+      tab==='suggest'?suggestPage:
+      tab==='library'?libraryPage:
+      tab==='history'?histPage:
+      tab==='chat'?chatPage:
+      settingsPage
+    ),
+    modal
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(h(App));
+</script>
+</body>
+</html>
