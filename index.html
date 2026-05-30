@@ -189,6 +189,10 @@ function doPost(e){
     const s=getOrCreate('library');
     if(s.getLastRow()>1)s.deleteRows(2,s.getLastRow()-1);
     b.recipes.forEach(r=>s.appendRow([r.id,r.name,r.category,r.ingredients,r.url,r.memo||'']));
+  }else if(b.action==='saveAllHistory'){
+    const s=getOrCreate('history');
+    if(s.getLastRow()>1)s.deleteRows(2,s.getLastRow()-1);
+    (b.entries||[]).forEach(e=>s.appendRow([e.date,JSON.stringify(e.dishes),e.leftovers||'']));
   }
   return out({ok:true});
 }
@@ -255,6 +259,7 @@ function App(){
   }
   async function saveHistoryRemote(hist){
     LS.set('k-history',hist);
+    if(gasUrl)await gasRequest(gasUrl,'post',{action:'saveAllHistory',entries:hist});
   }
 
   function flash(msg,type){
@@ -329,8 +334,28 @@ ${JSON.stringify(libJson,null,2)}
     const nh=[...history,entry].slice(-30);
     setHistory(nh);
     await saveHistoryRemote(nh);
-    if(gasUrl)await gasRequest(gasUrl,'post',{action:'saveHistory',date:today,dishes:suggestions,leftovers});
     flash('保存しました','ok');
+  }
+
+  async function saveManual(){
+    if(manualPicks.length!==3){flash('3品選んでください','err');return;}
+    const today=new Date().toLocaleDateString('ja-JP',{year:'numeric',month:'long',day:'numeric',weekday:'short'});
+    const dishes=manualPicks.map(r=>({name:r.name,category:r.category,ingredients:r.ingredients,url:r.url||'',reason:'手動選択'}));
+    const entry={date:today,dishes,leftovers};
+    const nh=[...history,entry].slice(-30);
+    setHistory(nh);
+    await saveHistoryRemote(nh);
+    setManualPicks([]);setShowManual(false);
+    flash('手動選択を履歴に保存しました','ok');
+  }
+
+  function toggleManualPick(item){
+    setManualPicks(prev=>{
+      const exists=prev.find(r=>r.id===item.id);
+      if(exists)return prev.filter(r=>r.id!==item.id);
+      if(prev.length>=3){flash('3品まで選択できます','err');return prev;}
+      return [...prev,item];
+    });
   }
 
   async function clearHistory(){
@@ -444,7 +469,27 @@ ${libSummary}
         ),
         suggestions.length>0&&h('button',{className:'btn',onClick:saveToday},
           h('i',{className:'ti ti-device-floppy'}),' 履歴に保存'
+        ),
+        h('button',{className:'btn',onClick:()=>{setShowManual(v=>!v);setManualPicks([]);}},
+          h('i',{className:'ti ti-hand-click'}),' 手動で3品選ぶ'
         )
+      )
+    ),
+    showManual&&h('div',{className:'card'},
+      h('div',{className:'card-title'},h('i',{className:'ti ti-hand-click'}),'手動選択（',manualPicks.length,'/3品）'),
+      h('div',{style:{display:'flex',flexWrap:'wrap',gap:6,marginBottom:'0.75rem'}},
+        library.map(r=>{
+          const sel=!!manualPicks.find(p=>p.id===r.id);
+          return h('button',{key:r.id,onClick:()=>toggleManualPick(r),
+            style:{padding:'4px 10px',borderRadius:20,border:'1.5px solid '+(sel?'var(--blue)':'var(--b)'),
+              background:sel?'var(--blue)':'var(--bg)',color:sel?'#fff':'var(--g800)',
+              cursor:'pointer',fontSize:13,fontWeight:sel?700:400}},
+            r.name,h('span',{style:{fontSize:11,marginLeft:4,opacity:.7}},r.category)
+          );
+        })
+      ),
+      h('button',{className:'btn primary',disabled:manualPicks.length!==3,onClick:saveManual},
+        h('i',{className:'ti ti-device-floppy'}),' この3品を履歴に保存'
       )
     ),
 
@@ -607,58 +652,4 @@ ${libSummary}
         h('li',null,'上のフォームに貼り付けて「今すぐ同期」を押す')
       ),
       h('div',{className:'code-block'},
-        h('button',{className:'copy-btn',onClick:()=>navigator.clipboard.writeText(GAS_CODE).then(()=>flash('コピーしました','ok'))},
-          h('i',{className:'ti ti-copy'}),' コピー'),
-        h('pre',null,GAS_CODE)
-      )
-    )
-  );
-
-  /* ── Modal: レシピ追加・編集 ────────────────────────────────── */
-  const modal=showModal&&h('div',{className:'modal-overlay',onClick:e=>{if(e.target.className==='modal-overlay')setShowModal(false);}},
-    h('div',{className:'modal'},
-      h('div',{className:'modal-title'},
-        h('i',{className:'ti ti-'+(editItem?'pencil':'plus'),style:{color:'var(--green)'}}),
-        editItem?'レシピを編集':'レシピを追加'
-      ),
-      h('label',null,'料理名 *'),
-      h('input',{type:'text',placeholder:'例: ほうれん草のお浸し',value:form.name,
-        onChange:ev=>setForm({...form,name:ev.target.value})}),
-      h('label',null,'カテゴリ'),
-      h('select',{value:form.category,onChange:ev=>setForm({...form,category:ev.target.value})},
-        CATS.map(c=>h('option',{key:c,value:c},c))
-      ),
-      h('label',null,'食材（カンマ区切り）'),
-      h('input',{type:'text',placeholder:'例: ほうれん草,だし醤油,かつお節',value:form.ingredients,
-        onChange:ev=>setForm({...form,ingredients:ev.target.value})}),
-      h('label',null,'レシピURL（任意）'),
-      h('input',{type:'url',placeholder:'https://www.sirogohan.com/recipe/...',value:form.url,
-        onChange:ev=>setForm({...form,url:ev.target.value})}),
-      h('label',null,'メモ（任意）'),
-      h('input',{type:'text',placeholder:'例: 季節限定・人気メニュー',value:form.memo,
-        onChange:ev=>setForm({...form,memo:ev.target.value})}),
-      err&&h('div',{className:'alert ae',style:{marginTop:'.75rem'}},h('i',{className:'ti ti-circle-x'}),err),
-      h('div',{className:'modal-foot'},
-        h('button',{className:'btn',onClick:()=>setShowModal(false)},'キャンセル'),
-        h('button',{className:'btn primary',onClick:saveForm},
-          h('i',{className:'ti ti-check'}),editItem?' 更新':' 追加')
-      )
-    )
-  );
-
-  return h('div',{className:'layout'},
-    sidebar,
-    h('div',{className:'main'},
-      tab==='suggest'?suggestPage:
-      tab==='library'?libraryPage:
-      tab==='history'?histPage:
-      tab==='chat'?chatPage:
-      settingsPage
-    ),
-    modal
-  );
-}
-ReactDOM.createRoot(document.getElementById('root')).render(h(App));
-</script>
-</body>
-</html>
+        h('button',{className:'copy-btn',onClick:()=>navigator.clipboard.writeText(GAS_CODE).then(()=>flash('コピーしました','ok
